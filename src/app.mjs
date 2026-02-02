@@ -19,11 +19,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // CORS Configuration
-app.use(cors());
+app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
 
 // test  (before routes so it's not caught by router)
 app.get("/api/test", (req, res) => {
-  res.json({ status: "ok", message: "Server is running" , "data":  {
+  res.send({ status: "ok", message: "Server is running" , "data":  {
       "name": "john",
       "age": 20
   }});
