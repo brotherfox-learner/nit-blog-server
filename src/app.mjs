@@ -54,6 +54,12 @@ app.use((err, req, res, next) => {
 });
 
 
-const server = app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+// Export for Vercel serverless
+export default app;
+
+// Run server locally (skip on Vercel)
+if (process.env.VERCEL !== "1") {
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+  });
+}
