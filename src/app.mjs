@@ -9,6 +9,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
+?.split(",")
+.map(o => o.trim());
 
 // Middleware - ใช้ console.log แทน stdout เพื่อหลีกเลี่ยง buffering issue ใน Windows
 app.use(morgan("dev", {
@@ -19,7 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // CORS Configuration
-app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }));
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 
 // test  (before routes so it's not caught by router)
 app.get("/api/test", (req, res) => {
