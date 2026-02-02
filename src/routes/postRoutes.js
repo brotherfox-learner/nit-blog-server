@@ -1,10 +1,10 @@
 import express from "express";
 import { getPosts, getPostById, createPost } from "../controllers/postController.js";
 
-const router = express.Router();
+const postRouter = express.Router();
 
-router.get("/", getPosts);
-router.get("/:id", getPostById);
-router.post("/", createPost);
+postRouter.get("/", getPosts);
+postRouter.get("/:id", getPostById);
+postRouter.post("/", createPost);
 
-export default router;
+export default postRouter;
