@@ -10,6 +10,26 @@ export const getPosts = async (req, res, next) => {
   }
 };
 
+export const getPostsByCategoryId = async (req, res, next) => {
+  try {
+    const category_id = req.query.category_id;
+    const data = await pool.query("SELECT * FROM posts WHERE category_id = $1", [category_id]);
+    res.json({ posts: data.rows });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPostsByTitleKeyword = async (req, res, next) => {
+  try {
+    const title = req.query.title;
+    const data = await pool.query("SELECT * FROM posts WHERE title LIKE $1", [`%${title}%`]);
+    res.json({ posts: data.rows });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ดึงข้อมูลจากตาราง posts ตาม id
 export const getPostById = async (req, res, next) => {
   try {

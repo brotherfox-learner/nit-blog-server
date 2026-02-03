@@ -14,15 +14,8 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password,
   database: process.env.DB_NAME,
-  ssl: process.env.DB_SSL !== "false" ? { rejectUnauthorized: false } : false,
-  min: 1, // คง connection อย่างน้อย 1 ตัว — ป้องกัน Node.js exit
-});
-
-// เชื่อมต่อทันทีเมื่อ import (ไม่รอ lazy)
-pool.connect().then(() => {
-  console.log("✅ Database connected");
-}).catch((err) => {
-  console.error("❌ Database connection error:", err.message);
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 10000
 });
 
 export default pool;
