@@ -45,10 +45,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
 
   const statusCode = err.statusCode || 500;
-  const message =
-    process.env.NODE_ENV === "production"
-      ? "Server could not process your request because database connection"
-      : err.message;
+  const message = err.message; // แสดง error จริงชั่วคราวเพื่อ debug
 
   res.status(statusCode).json({ message: message });
 });
