@@ -1,45 +1,48 @@
-import pool from "../utils/db.mjs";
+import * as postService from "../services/postService.js";
 
-// ดึงข้อมูลทั้งหมดจากตาราง posts
+/**
+ * Controller Layer สำหรับ Post
+ * ทำหน้าที่จัดการ req/res และเรียกใช้ Service เพื่อประมวลผลข้อมูล
+ * ดึงข้อมูลที่ผ่านการตรวจสอบแล้วจาก req.body
+ * สร้าง Input DTO และส่งให้ Service Layer
+ * รับค่าจาก Service แล้วสร้าง Output DTO และส่ง res กลับไป
+ */
+
+// GET /posts - ดึงข้อมูลบทความทั้งหมด (pagination, category, keyword)
 export const getPosts = async (req, res, next) => {
   try {
-    const data = await pool.query("SELECT * FROM posts");
-    res.json({ posts: data.rows });
+    const { page, limit, category, keyword } = req.query;
+    const filters = {
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 6,
+      category: category || undefined,
+      keyword: keyword || undefined,
+    };
+
+    const result = await postService.getPosts(filters);
+    res.status(200).json(result);
   } catch (error) {
+    if (error.code === "ECONNREFUSED" || error.message?.includes("connection")) {
+      return res.status(500).json({ message: "Server could not read post because database connection" });
+    }
     next(error);
   }
 };
 
-export const getPostsByCategoryId = async (req, res, next) => {
-  try {
-    const category_id = req.query.category_id;
-    const data = await pool.query("SELECT * FROM posts WHERE category_id = $1", [category_id]);
-    res.json({ posts: data.rows });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getPostsByTitleKeyword = async (req, res, next) => {
-  try {
-    const title = req.query.title;
-    const data = await pool.query("SELECT * FROM posts WHERE title LIKE $1", [`%${title}%`]);
-    res.json({ posts: data.rows });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ดึงข้อมูลจากตาราง posts ตาม id
+// GET /posts/:postId - ดึงข้อมูลบทความอันเดียว
 export const getPostById = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const data = await pool.query("SELECT * FROM posts WHERE id = $1", [id]);
-    if (data.rows.length === 0) {
-      return res.status(404).json({ error: "Post not found" });
-    }
-    res.json({ post: data.rows[0] });
+    const postId = req.params.postId ?? req.params.id;
+
+    const post = await postService.getPostById(postId);
+    res.status(200).json(post);
   } catch (error) {
+    if (error.message === "POST_NOT_FOUND") {
+      return res.status(404).json({ message: "Server could not find a requested post" });
+    }
+    if (error.code === "ECONNREFUSED" || error.message?.includes("connection")) {
+      return res.status(500).json({ message: "Server could not read post because database connection" });
+    }
     next(error);
   }
 };
@@ -47,36 +50,74 @@ export const getPostById = async (req, res, next) => {
 // สร้างข้อมูลใหม่ในตาราง posts
 export const createPost = async (req, res, next) => {
   try {
-    if (!req.body.title || !req.body.image || !req.body.category_id || !req.body.description || !req.body.content || !req.body.status_id) {
-      return res.status(400).json({ "message": "Server could not create post because there are missing data from client" });
-    }
-    const { title, image, category_id, description, content, status_id } = req.body;
-    const data = await pool.query("INSERT INTO posts (title, image, category_id, description, content, status_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", [title, image, category_id, description, content, status_id]);
-    res.status(201).json({ message: "Created post sucessfully", post: data.rows[0] });
+    // ดึงข้อมูลที่ผ่านการตรวจสอบแล้วจาก req.body
+    const postData = {
+      title: req.body.title,
+      image: req.body.image,
+      category_id: req.body.category_id,
+      description: req.body.description,
+      content: req.body.content,
+      status_id: req.body.status_id,
+    };
+
+    // ส่ง DTO ให้ Service Layer ทำงานต่อ
+    const post = await postService.createPost(postData);
+
+    // รับค่าจาก Service แล้วสร้าง Output DTO และส่ง res กลับไป
+    res.status(201).json({ 
+      message: "Created post successfully", 
+      post: post 
+    });
   } catch (error) {
+    if (error.message === "Missing required fields") {
+      return res.status(400).json({ 
+        message: "Server could not create post because there are missing data from client" 
+      });
+    }
     next(error);
   }
 };
 
-// อัพเดตข้อมูลในตาราง posts ตาม id
+// PUT /posts/:postId - แก้ไขบทความ
 export const updatePost = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { title, image, category_id, description, content, status_id } = req.body;
-    const data = await pool.query("UPDATE posts SET title = $1, image = $2, category_id = $3, description = $4, content = $5, status_id = $6 WHERE id = $7 RETURNING *", [title, image, category_id, description, content, status_id, id]);
-    res.status(200).json({ message: `Updated post ${id} sucessfully`, post: data.rows[0] });
+    const postId = req.params.postId ?? req.params.id;
+    const postData = {
+      title: req.body.title,
+      image: req.body.image,
+      category_id: req.body.category_id,
+      description: req.body.description,
+      content: req.body.content,
+      status_id: req.body.status_id,
+    };
+
+    const result = await postService.updatePost(postId, postData);
+    res.status(200).json(result);
   } catch (error) {
+    if (error.message === "POST_NOT_FOUND") {
+      return res.status(404).json({ message: "Server could not find a requested post to update" });
+    }
+    if (error.code === "ECONNREFUSED" || error.message?.includes("connection")) {
+      return res.status(500).json({ message: "Server could not update post because database connection" });
+    }
     next(error);
   }
 };
 
-// ลบข้อมูลในตาราง posts ตาม id
+// DELETE /posts/:postId - ลบบทความ
 export const deletePost = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const data = await pool.query("DELETE FROM posts WHERE id = $1 RETURNING *", [id]);
-    res.status(200).json({ message: `Deleted post ${id} sucessfully` });
+    const postId = req.params.postId ?? req.params.id;
+
+    const result = await postService.deletePost(postId);
+    res.status(200).json(result);
   } catch (error) {
+    if (error.message === "POST_NOT_FOUND") {
+      return res.status(404).json({ message: "Server could not find a requested post to delete" });
+    }
+    if (error.code === "ECONNREFUSED" || error.message?.includes("connection")) {
+      return res.status(500).json({ message: "Server could not delete post because database connection" });
+    }
     next(error);
   }
 };
