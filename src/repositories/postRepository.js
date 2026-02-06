@@ -15,9 +15,17 @@ export const getAllPosts = async (filters = {}) => {
   const params = [];
   let paramIndex = 1;
 
-  if (category) {
-    conditions.push(`p.category_id = $${paramIndex}`);
-    params.push(category);
+  if (category && category.trim()) {
+    // รองรับทั้ง category name (string) และ category_id (number)
+    if (isNaN(category)) {
+      // ถ้าเป็น string ให้ค้นหาจากชื่อ category
+      conditions.push(`c.name ILIKE $${paramIndex}`);
+      params.push(category.trim());
+    } else {
+      // ถ้าเป็น number ให้ค้นหาจาก category_id
+      conditions.push(`p.category_id = $${paramIndex}`);
+      params.push(parseInt(category, 10));
+    }
     paramIndex++;
   }
 
