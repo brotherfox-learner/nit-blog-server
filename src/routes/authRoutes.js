@@ -1,15 +1,13 @@
 import { Router } from "express";
 import * as authController from "../controllers/authController.js";
+import { protectUser } from "../middleware/auth.middleware.js";
 
 const authRouter = Router();
 
-// POST /register - สร้าง user ใหม่
-authRouter.post("/register", authController.register);
+// GET /auth/me - ดึง profile ของตัวเอง
+authRouter.get("/me", protectUser, authController.getMe);
 
-// POST /login - Login user
-authRouter.post("/login", authController.login);
-
-// GET /get-user - ดึงข้อมูล user จาก token
-authRouter.get("/get-user", authController.getUser);
+// PUT /auth/me - อัพเดต profile ของตัวเอง
+authRouter.put("/me", protectUser, authController.updateMe);
 
 export default authRouter;

@@ -1,58 +1,82 @@
 import { createClient } from "@supabase/supabase-js";
 import pool from "../utils/db.mjs";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "..", "..", ".env") });
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
+  process.env.SUPABASE_PUBLISHABLE_KEY
 );
 
-// Middleware สำหรับการป้องกันการเข้าถึงข้อมูลของ User
-const protectUser = async (req, res, next) => {
+/**
+ * Middleware: protectUser
+ * ตรวจสอบ Supabase JWT token จาก Authorization header
+ * แล้วใส่ข้อมูล user ลง req.user
+ */
+export const protectUser = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
+
   if (!token) {
-    return res.status(401).json({ error: "Unauthorized: Token missing" });
+    return res.status(401).json({ message: "Unauthorized: Token missing" });
   }
+
   try {
     const { data, error } = await supabase.auth.getUser(token);
+
     if (error || !data.user) {
-      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+      return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
-    req.user = { ...data.user };
+
+    // ใส่ supabase auth user ลง req.user (มี id, email, aud, role ฯลฯ)
+    req.user = data.user;
     next();
   } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
+    console.error("protectUser middleware error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-// Middleware สำหรับการป้องกันการเข้าถึงข้อมูลของ Admin
-const protectAdmin = async (req, res, next) => {
+/**
+ * Middleware: protectAdmin
+ * ตรวจสอบ token + ตรวจสอบ role = "admin" จาก users table
+ */
+export const protectAdmin = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
+
   if (!token) {
-    return res.status(401).json({ error: "Unauthorized: Token missing" });
+    return res.status(401).json({ message: "Unauthorized: Token missing" });
   }
+
   try {
     const { data, error } = await supabase.auth.getUser(token);
+
     if (error || !data.user) {
-      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+      return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
-    const supabaseUserId = data.user.id;
-    const query = `
-      SELECT role FROM users
-      WHERE id = $1
-    `;
-    const values = [supabaseUserId];
-    const { rows } = await pool.query(query, values);
+
+    // ดึง role จาก users table
+    const { rows } = await pool.query(
+      "SELECT role FROM users WHERE id = $1",
+      [data.user.id]
+    );
+
     if (!rows.length) {
-      return res.status(404).json({ error: "User role not found" });
+      return res.status(404).json({ message: "User profile not found" });
     }
+
     req.user = { ...data.user, role: rows[0].role };
+
     if (req.user.role !== "admin") {
-      return res
-        .status(403)
-        .json({ error: "Forbidden: You do not have admin access" });
+      return res.status(403).json({ message: "Forbidden: Admin access required" });
     }
+
     next();
   } catch (err) {
-    res.status(500).json({ error: "Internal server error" });
+    console.error("protectAdmin middleware error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
-export { protectUser, protectAdmin };

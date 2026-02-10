@@ -29,12 +29,14 @@ export const getAllPosts = async (filters = {}) => {
     paramIndex++;
   }
 
+  // ค้นหาจาก title, description, content
   if (keyword && keyword.trim()) {
     conditions.push(`(p.title ILIKE $${paramIndex} OR p.description ILIKE $${paramIndex} OR p.content ILIKE $${paramIndex})`);
     params.push(`%${keyword.trim()}%`);
     paramIndex++;
   }
 
+  // สร้างคำสั่ง SQL สำหรับการค้นหา
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countQuery = `
@@ -109,6 +111,12 @@ export const updatePostById = async (id, postData) => {
 // ลบ post ตาม id
 export const deletePostById = async (id) => {
   const result = await pool.query("DELETE FROM posts WHERE id = $1 RETURNING *", [id]);
+  return result.rows[0] || null;
+};
+
+// ตรวจสอบว่า post มีอยู่หรือไม่ (สำหรับ business logic / commentService)
+export const findById = async (id) => {
+  const result = await pool.query("SELECT id FROM posts WHERE id = $1", [id]);
   return result.rows[0] || null;
 };
 

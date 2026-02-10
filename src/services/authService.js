@@ -2,113 +2,56 @@ import * as authRepository from "../repositories/authRepository.js";
 
 /**
  * Service Layer สำหรับ Auth
- * ทำหน้าที่จัดการ Business Logic ของระบบ
- * เรียกใช้ Repository เพื่อเข้าถึงข้อมูล
+ * ทำหน้าที่จัดการ Business Logic
  * ไม่รู้จัก req, res
+ *
+ * หมายเหตุ: register ไม่จำเป็นแล้ว เพราะ Supabase trigger
+ * (AFTER INSERT ON auth.users → INSERT public.users) จัดการสร้าง profile ให้อัตโนมัติ
  */
 
-// Register user
-export const register = async (registerData) => {
-  const { email, password, username, name } = registerData;
+// ดึง profile ของ user ที่ login อยู่ (ใช้ token verify แล้วจาก middleware)
+export const getMe = async (supabaseUser) => {
+  const profile = await authRepository.findUserById(supabaseUser.id);
 
-  // Business Logic: ตรวจสอบว่ามีข้อมูลครบถ้วนหรือไม่
-  if (!email || !password || !username || !name) {
-    throw new Error("MISSING_REQUIRED_FIELDS");
+  if (!profile) {
+    throw new Error("PROFILE_NOT_FOUND");
   }
-
-  // Business Logic: ตรวจสอบว่า username มีอยู่แล้วหรือไม่
-  const existingUser = await authRepository.findUserByUsername(username);
-  if (existingUser) {
-    throw new Error("USERNAME_ALREADY_TAKEN");
-  }
-
-  // สร้าง user ใน Supabase
-  const { data, error: supabaseError } = await authRepository.createSupabaseUser(
-    email,
-    password
-  );
-
-  if (supabaseError) {
-    if (supabaseError.code === "user_already_exists") {
-      throw new Error("EMAIL_ALREADY_EXISTS");
-    }
-    throw new Error("SUPABASE_SIGNUP_FAILED");
-  }
-
-  // สร้าง user ใน PostgreSQL database
-  const supabaseUserId = data.user.id;
-  const user = await authRepository.createUser(
-    supabaseUserId,
-    username,
-    name,
-    "user"
-  );
 
   return {
-    message: "User created successfully",
-    user,
+    id: profile.id,
+    email: supabaseUser.email,
+    username: profile.username,
+    name: profile.name,
+    role: profile.role,
+    profile_pic: profile.profile_pic,
+    bio: profile.bio,
   };
 };
 
-// Login user
-export const login = async (loginData) => {
-  const { email, password } = loginData;
-
-  // Business Logic: ตรวจสอบว่ามีข้อมูลครบถ้วนหรือไม่
-  if (!email || !password) {
-    throw new Error("MISSING_CREDENTIALS");
+// อัพเดต profile ของตัวเอง
+export const updateMe = async (userId, profileData) => {
+  const existing = await authRepository.findUserById(userId);
+  if (!existing) {
+    throw new Error("PROFILE_NOT_FOUND");
   }
 
-  // Login ด้วย Supabase
-  const { data, error } = await authRepository.signInWithPassword(
-    email,
-    password
-  );
-
-  if (error) {
-    if (
-      error.code === "invalid_credentials" ||
-      error.message.includes("Invalid login credentials")
-    ) {
-      throw new Error("INVALID_CREDENTIALS");
+  // ถ้าเปลี่ยน username ต้องเช็คซ้ำ
+  if (profileData.username && profileData.username.trim() !== existing.username) {
+    const duplicate = await authRepository.findUserByUsername(profileData.username.trim());
+    if (duplicate) {
+      throw new Error("USERNAME_ALREADY_TAKEN");
     }
-    throw new Error("LOGIN_FAILED");
   }
+
+  const updated = await authRepository.updateUserProfile(userId, {
+    username: profileData.username?.trim(),
+    name: profileData.name?.trim(),
+    profile_pic: profileData.profile_pic,
+    bio: profileData.bio?.trim(),
+  });
 
   return {
-    message: "Signed in successfully",
-    access_token: data.session.access_token,
-  };
-};
-
-// Get user by token
-export const getUser = async (token) => {
-  // Business Logic: ตรวจสอบว่ามี token หรือไม่
-  if (!token) {
-    throw new Error("TOKEN_MISSING");
-  }
-
-  // ดึงข้อมูล user จาก Supabase ด้วย token
-  const { data, error } = await authRepository.getUserFromToken(token);
-
-  if (error || !data.user) {
-    throw new Error("INVALID_TOKEN");
-  }
-
-  // ดึงข้อมูล user จาก PostgreSQL database
-  const supabaseUserId = data.user.id;
-  const user = await authRepository.findUserById(supabaseUserId);
-
-  if (!user) {
-    throw new Error("USER_NOT_FOUND");
-  }
-
-  return {
-    id: data.user.id,
-    email: data.user.email,
-    username: user.username,
-    name: user.name,
-    role: user.role,
-    profilePic: user.profile_pic,
+    message: "Profile updated successfully",
+    user: updated,
   };
 };
