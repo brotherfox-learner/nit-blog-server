@@ -14,12 +14,14 @@ import {
   validateUserIdParamForComment,
 } from "../middleware/validation.middleware.js";
 
+import { protectUser } from "../middleware/auth.middleware.js";
+
 const commentRouter = express.Router();
 
-commentRouter.post("/", validateCreateComment, createComment);
+commentRouter.post("/", protectUser, validateCreateComment, createComment);
 commentRouter.get("/post/:post_id", validatePostIdParamForComment, getCommentsByPostId);
 commentRouter.get("/user/:user_id", validateUserIdParamForComment, getCommentsByUserId);
-commentRouter.put("/:id", validateCommentIdParam, validateUpdateComment, updateCommentById);
-commentRouter.delete("/:id", validateCommentIdParam, deleteCommentById);
+commentRouter.put("/:id", protectUser, validateCommentIdParam, validateUpdateComment, updateCommentById);
+commentRouter.delete("/:id", protectUser, validateCommentIdParam, deleteCommentById);
 
 export default commentRouter;

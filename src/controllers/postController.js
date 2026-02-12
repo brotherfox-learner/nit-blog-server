@@ -53,15 +53,14 @@ export const createPost = async (req, res, next) => {
     // ดึงข้อมูลที่ผ่านการตรวจสอบแล้วจาก req.body
     const postData = {
       title: req.body.title,
-      image: req.body.image,
       category_id: req.body.category_id,
       description: req.body.description,
       content: req.body.content,
       status_id: req.body.status_id,
     };
-
+    const file = req.files.imageFile[0];
     // ส่ง DTO ให้ Service Layer ทำงานต่อ
-    const post = await postService.createPost(postData);
+    const post = await postService.createPost(postData, file);
 
     // รับค่าจาก Service แล้วสร้าง Output DTO และส่ง res กลับไป
     res.status(201).json({ 
@@ -84,14 +83,14 @@ export const updatePost = async (req, res, next) => {
     const postId = req.params.postId ?? req.params.id;
     const postData = {
       title: req.body.title,
-      image: req.body.image,
       category_id: req.body.category_id,
       description: req.body.description,
       content: req.body.content,
       status_id: req.body.status_id,
     };
 
-    const result = await postService.updatePost(postId, postData);
+    const file = req.files.imageFile[0];
+    const result = await postService.updatePost(postId, postData, file);
     res.status(200).json(result);
   } catch (error) {
     if (error.message === "POST_NOT_FOUND") {

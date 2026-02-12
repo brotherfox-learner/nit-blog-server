@@ -61,11 +61,15 @@ export const getPostById = async (id) => {
 };
 
 // สร้าง post ใหม่
-export const createPost = async (postData) => {
-  const { title, image, category_id, description, content, status_id } = postData;
+export const createPost = async (postData, file) => {
+  const { title, category_id, description, content, status_id } = postData;
+
+  if (!file) {
+    throw new Error("Image is required");
+  }
   
   // Business Logic: ตรวจสอบว่ามีข้อมูลครบถ้วนหรือไม่
-  if (!title || !image || !category_id || !description || !content || !status_id) {
+  if (!title || !category_id || !description || !content || !status_id) {
     throw new Error("Missing required fields");
   }
   
@@ -74,11 +78,13 @@ export const createPost = async (postData) => {
   // if (existingPost) {
   //   throw new Error("Post with this title already exists");
   // }
+
+  const imageUrl = await storageRepository.uploadImage(file);
   
   // เตรียมข้อมูลสำหรับการสร้าง post
   const newPostData = {
     title: title.trim(),
-    image,
+    image: imageUrl,
     category_id,
     description: description.trim(),
     content: content.trim(),
@@ -92,15 +98,21 @@ export const createPost = async (postData) => {
 };
 
 // อัพเดต post ตาม id
-export const updatePost = async (id, postData) => {
+export const updatePost = async (id, postData, file) => {
   const existingPost = await postRepository.getPostById(id);
   if (!existingPost) {
     throw new Error("POST_NOT_FOUND");
   }
 
-  const updateData = {
+  if (!file) {
+    throw new Error("Image is required");
+  }
+
+  const imageUrl = await storageRepository.uploadImage(file);
+
+    const updateData = {
     title: postData.title?.trim() ?? existingPost.title,
-    image: postData.image ?? existingPost.image,
+    image: imageUrl,
     category_id: postData.category_id ?? existingPost.category_id,
     description: postData.description?.trim() ?? existingPost.description,
     content: postData.content?.trim() ?? existingPost.content,

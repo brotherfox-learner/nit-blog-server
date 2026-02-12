@@ -3,9 +3,15 @@ import pool from "../utils/db.mjs";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, "..", "..", ".env") });
+const envPath = path.resolve(__dirname, "..", "..", ".env");
+
+// โหลด .env เฉพาะถ้ามีไฟล์ (local dev) — บน Vercel ใช้ env vars จาก Dashboard
+if (existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -56,6 +62,38 @@ export const updateUserProfile = async (userId, profileData) => {
      WHERE id = $5
      RETURNING id, username, name, role, profile_pic, bio`,
     [username, name, profile_pic, bio, userId]
+  );
+  return result.rows[0] || null;
+};
+
+// ========== Server-side Auth Operations ==========
+
+// Sign up ผ่าน Supabase Admin (server-side)
+export const signUpWithEmail = async ({ email, password, username, name }) => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name, username },
+    },
+  });
+  return { data, error };
+};
+
+// Sign in ผ่าน Supabase Admin (server-side)
+export const signInWithEmail = async ({ email, password }) => {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  return { data, error };
+};
+
+// ตรวจสอบว่า email ซ้ำหรือไม่ (ใน public.users)
+export const findUserByEmail = async (email) => {
+  const result = await pool.query(
+    "SELECT id, username, email FROM users WHERE email = $1",
+    [email]
   );
   return result.rows[0] || null;
 };

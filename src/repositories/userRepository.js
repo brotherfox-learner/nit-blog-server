@@ -32,17 +32,6 @@ export const findByUsername = async (username) => {
   return result.rows[0] || null;
 };
 
-export const create = async (userData) => {
-  const { username, name, profile_pic, role, bio } = userData;
-  const result = await pool.query(
-    `INSERT INTO users (username, name, profile_pic, role, bio)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, username, name, profile_pic, role, bio`,
-    [username, name ?? null, profile_pic ?? null, role ?? null, bio ?? null]
-  );
-  return result.rows[0];
-};
-
 export const updateById = async (id, userData) => {
   const { username, name, profile_pic, role, bio } = userData;
   const result = await pool.query(

@@ -2,22 +2,19 @@ import express from "express";
 import {
   getUsers,
   getUserById,
-  createUser,
   updateUser,
   deleteUser,
 } from "../controllers/userController.js";
 import {
-  validateCreateUser,
   validateUpdateUser,
   validateUserIdParam,
 } from "../middleware/validation.middleware.js";
-
+import { protectUser, protectAdmin } from "../middleware/auth.middleware.js";
 const userRouter = express.Router();
 
-userRouter.get("/", getUsers);
-userRouter.get("/:userId", validateUserIdParam, getUserById);
-userRouter.post("/", validateCreateUser, createUser);
-userRouter.put("/:userId", validateUserIdParam, validateUpdateUser, updateUser);
-userRouter.delete("/:userId", validateUserIdParam, deleteUser);
+userRouter.get("/", protectAdmin, getUsers);
+userRouter.get("/:userId", protectUser, validateUserIdParam, getUserById);
+userRouter.put("/:userId", protectUser, validateUserIdParam, validateUpdateUser, updateUser);
+userRouter.delete("/:userId", protectUser, validateUserIdParam, deleteUser);
 
 export default userRouter;

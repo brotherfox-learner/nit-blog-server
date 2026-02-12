@@ -32,24 +32,6 @@ export const getUserById = async (id) => {
   };
 };
 
-export const createUser = async (userData) => {
-  const { username, name, profile_pic, role, bio } = userData;
-  if (!username || !username.trim()) {
-    throw new Error("Username is required");
-  }
-  const existing = await userRepository.findByUsername(username.trim());
-  if (existing) {
-    throw new Error("USERNAME_ALREADY_TAKEN");
-  }
-  return userRepository.create({
-    username: username.trim(),
-    name: name?.trim() || null,
-    profile_pic: profile_pic || null,
-    role: role || null,
-    bio: bio?.trim() || null,
-  });
-};
-
 export const updateUser = async (id, userData) => {
   const existing = await userRepository.findById(id);
   if (!existing) {

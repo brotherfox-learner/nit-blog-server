@@ -1,10 +1,26 @@
 import pool from "../utils/db.mjs";
+import {createClient} from "@supabase/supabase-js";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const envPath = path.resolve(__dirname, "..", "..", ".env");
+
+if (existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+}
 /**
  * Repository Layer สำหรับ Post
  * ทำหน้าที่ติดต่อกับ Database เท่านั้น
  * ไม่รู้จัก req, res, DTO หรือ Business Logic
  */
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_PUBLISHABLE_KEY
+);
 
 // ดึงข้อมูล posts ทั้งหมดพร้อม pagination และ filter (category, keyword on title/description/content)
 export const getAllPosts = async (filters = {}) => {
@@ -88,9 +104,31 @@ export const getPostById = async (id) => {
   return result.rows[0] || null;
 };
 
+export const uploadImage = async (file) => {
+  const bucketName = "my-blog";
+
+  const filePath = `posts/${Date.now()}_${file.originalname}`;
+
+  const { data, error } = await supabase.storage
+    .from(bucketName)
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(bucketName).getPublicUrl(data.path);
+
+  return publicUrl;
+};
+
 // สร้าง post ใหม่
 export const createPost = async (postData) => {
   const { title, image, category_id, description, content, status_id } = postData;
+  
   const result = await pool.query(
     "INSERT INTO posts (title, image, category_id, description, content, status_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
     [title, image, category_id, description, content, status_id]
