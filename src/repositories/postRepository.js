@@ -24,12 +24,18 @@ const supabase = createClient(
 
 // ดึงข้อมูล posts ทั้งหมดพร้อม pagination และ filter (category, keyword on title/description/content)
 export const getAllPosts = async (filters = {}) => {
-  const { page = 1, limit = 6, category, keyword } = filters;
+  const { page = 1, limit = 6, category, keyword, status_id } = filters;
   const offset = (page - 1) * limit;
 
   const conditions = [];
   const params = [];
   let paramIndex = 1;
+
+  if (status_id !== undefined && status_id !== null && status_id !== "") {
+    conditions.push(`p.status_id = $${paramIndex}`);
+    params.push(parseInt(status_id, 10));
+    paramIndex++;
+  }
 
   if (category && category.trim()) {
     // รองรับทั้ง category name (string) และ category_id (number)
@@ -68,12 +74,17 @@ export const getAllPosts = async (filters = {}) => {
   const dataQuery = `
     SELECT
       p.id, p.title, p.image, p.description, p.content, p.date,
+      p.category_id, p.status_id, p.user_id,
       c.name AS category,
       s.status AS status,
+      u.name AS author,
+      u.profile_pic AS author_avatar,
+      u.bio AS author_bio,
       (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count
     FROM posts p
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN statuses s ON s.id = p.status_id
+    LEFT JOIN users u ON u.id = p.user_id
     ${whereClause}
     ORDER BY p.date DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -86,18 +97,22 @@ export const getAllPosts = async (filters = {}) => {
   };
 };
 
-// ดึงข้อมูล post ตาม id พร้อม category name, status name, likes_count
+// ดึงข้อมูล post ตาม id พร้อม category name, status name, likes_count, author info
 export const getPostById = async (id) => {
   const result = await pool.query(
     `SELECT
        p.id, p.title, p.image, p.description, p.content, p.date,
-       p.category_id, p.status_id,
+       p.category_id, p.status_id, p.user_id,
        c.name AS category,
        s.status AS status,
+       u.name AS author,
+       u.profile_pic AS author_avatar,
+       u.bio AS author_bio,
        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count
      FROM posts p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN statuses s ON s.id = p.status_id
+     LEFT JOIN users u ON u.id = p.user_id
      WHERE p.id = $1`,
     [id]
   );
@@ -127,11 +142,11 @@ export const uploadImage = async (file) => {
 
 // สร้าง post ใหม่
 export const createPost = async (postData) => {
-  const { title, image, category_id, description, content, status_id } = postData;
+  const { title, image, category_id, description, content, status_id, user_id } = postData;
   
   const result = await pool.query(
-    "INSERT INTO posts (title, image, category_id, description, content, status_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-    [title, image, category_id, description, content, status_id]
+    "INSERT INTO posts (title, image, category_id, description, content, status_id, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+    [title, image, category_id, description, content, status_id, user_id]
   );
   return result.rows[0];
 };

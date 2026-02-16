@@ -32,8 +32,8 @@ export const getUserById = async (id) => {
   };
 };
 
-export const updateUser = async (id, userData) => {
-  const existing = await userRepository.findById(id);
+export const updateUser = async (userId, userData) => {
+  const existing = await userRepository.findById(userId);
   if (!existing) {
     throw new Error("USER_NOT_FOUND");
   }
@@ -43,7 +43,7 @@ export const updateUser = async (id, userData) => {
       throw new Error("USERNAME_ALREADY_TAKEN");
     }
   }
-  return userRepository.updateById(id, {
+  return userRepository.updateById(userId, {
     username: userData.username?.trim(),
     name: userData.name?.trim(),
     profile_pic: userData.profile_pic,
@@ -52,11 +52,55 @@ export const updateUser = async (id, userData) => {
   });
 };
 
-export const deleteUser = async (id) => {
-  const existing = await userRepository.findById(id);
+export const deleteUser = async (userId) => {
+  const existing = await userRepository.findById(userId);
   if (!existing) {
     throw new Error("USER_NOT_FOUND");
   }
-  await userRepository.deleteById(id);
+  await userRepository.deleteById(userId);
   return { message: "User deleted successfully" };
+};
+
+// สำหรับดึงรูปและชื่อคนเดียว id = fb79d5ea-8598-45a6-aadb-605b6d1af81d เท่านั้นไม่ต้อง auth
+export const getUserForProfile = async () => {
+  const user = await userRepository.findByIdForProfile();
+  if (!user) {
+    throw new Error("USER_NOT_FOUND");
+  }
+  return user;
+};
+
+// สำหรับเปลี่ยนรหัสผ่าน
+export const changePassword = async (user, body, token) => {
+  const { currentPassword, newPassword, confirmPassword } = body;
+
+  if (!currentPassword || !newPassword) {
+    throw new Error("MISSING_FIELDS");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new Error("PASSWORD_NOT_MATCH");
+  }
+
+  // 1) ตรวจสอบรหัสผ่านปัจจุบัน โดย sign in ด้วย email
+  const { error: loginError } = await userRepository.verifyUserPassword(
+    user.email,
+    currentPassword
+  );
+
+  if (loginError) {
+    throw new Error("CURRENT_PASSWORD_INCORRECT");
+  }
+
+  // 2) อัพเดตรหัสผ่านใหม่ผ่าน Supabase Admin API (ใช้ user.id ไม่ต้องใช้ session)
+  const { error: updateError } = await userRepository.updateUserPassword(
+    user.id,
+    newPassword
+  );
+
+  if (updateError) {
+    throw new Error(updateError.message || "PASSWORD_UPDATE_FAILED");
+  }
+
+  return { message: "Password updated successfully" };
 };

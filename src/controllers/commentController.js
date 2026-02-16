@@ -11,10 +11,10 @@ import * as commentService from "../services/commentService.js";
 // สร้างความคิดเห็นใหม่
 export const createComment = async (req, res, next) => {
   try {
-    // ดึงข้อมูลที่ผ่านการตรวจสอบแล้วจาก req.body
+    // ใช้ user_id จาก req.user (มาจาก protectUser middleware) แทน req.body
     const commentData = {
       post_id: req.body.post_id,
-      user_id: req.body.user_id,
+      user_id: req.user?.id ?? req.body.user_id,
       comment_text: req.body.comment_text,
     };
 

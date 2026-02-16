@@ -7,7 +7,7 @@ import * as likeService from "../services/likeService.js";
 export const likePost = async (req, res, next) => {
   try {
     const postId = req.params.postId ?? req.params.id;
-    const userId = req.body.user_id;
+    const userId = req.user?.id ?? req.body.user_id;
     const result = await likeService.likePost(postId, userId);
     res.status(201).json(result);
   } catch (error) {
@@ -27,7 +27,7 @@ export const likePost = async (req, res, next) => {
 export const unlikePost = async (req, res, next) => {
   try {
     const postId = req.params.postId ?? req.params.id;
-    const userId = req.body.user_id;
+    const userId = req.user?.id ?? req.body.user_id;
     const result = await likeService.unlikePost(postId, userId);
     res.status(200).json(result);
   } catch (error) {

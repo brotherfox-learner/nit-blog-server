@@ -21,11 +21,17 @@ export const getPosts = async (filters = {}) => {
     id: row.id,
     image: row.image,
     category: row.category ?? null,
+    category_id: row.category_id,
     title: row.title,
     description: row.description,
     date: row.date,
     content: row.content,
     status: row.status ?? null,
+    status_id: row.status_id,
+    user_id: row.user_id,
+    author: row.author ?? null,
+    author_avatar: row.author_avatar ?? null,
+    author_bio: row.author_bio ?? null,
     likes_count: parseInt(row.likes_count, 10) || 0,
   }));
 
@@ -51,20 +57,27 @@ export const getPostById = async (id) => {
     id: post.id,
     image: post.image,
     category: post.category ?? null,
+    category_id: post.category_id,
     title: post.title,
     description: post.description,
     date: post.date,
     content: post.content,
     status: post.status ?? null,
+    status_id: post.status_id,
+    user_id: post.user_id,
+    author: post.author ?? null,
+    author_avatar: post.author_avatar ?? null,
+    author_bio: post.author_bio ?? null,
     likes_count: parseInt(post.likes_count, 10) || 0,
   };
 };
 
 // สร้าง post ใหม่
 export const createPost = async (postData, file) => {
-  const { title, category_id, description, content, status_id } = postData;
+  const { title, category_id, description, content, status_id, image, user_id } = postData;
 
-  if (!file) {
+  // ต้องมี file หรือ image URL
+  if (!file && !image) {
     throw new Error("Image is required");
   }
 
@@ -73,13 +86,11 @@ export const createPost = async (postData, file) => {
     throw new Error("Missing required fields");
   }
 
-  // Business Logic: ตรวจสอบว่าชื่อ post มีอยู่แล้วหรือไม่ (ถ้าต้องการ)
-  // const existingPost = await postRepository.findByTitle(title);
-  // if (existingPost) {
-  //   throw new Error("Post with this title already exists");
-  // }
-
-  const imageUrl = await storageRepository.uploadImage(file);
+  // อัพโหลดรูปถ้ามี file ใหม่
+  let imageUrl = image;
+  if (file) {
+    imageUrl = await postRepository.uploadImage(file);
+  }
 
   // เตรียมข้อมูลสำหรับการสร้าง post
   const newPostData = {
@@ -89,6 +100,7 @@ export const createPost = async (postData, file) => {
     description: description.trim(),
     content: content.trim(),
     status_id,
+    user_id: user_id || null, // เก็บ user_id ของ admin ที่สร้าง
   };
 
   // เรียก Repository เพื่อบันทึกข้อมูล
@@ -110,35 +122,16 @@ export const updatePost = async (id, postData, file) => {
     description: postData.description?.trim() ?? existingPost.description,
     content: postData.content?.trim() ?? existingPost.content,
     status_id: postData.status_id ?? existingPost.status_id,
+    image: postData.image ?? existingPost.image, // keep existing image by default
   };
 
-  const existingImageUrl = existingPost.image;
-
-  // ✅ ถ้ามีไฟล์ใหม่
+  // ถ้ามีไฟล์ใหม่ ให้อัพโหลดและอัพเดต image URL
   if (file) {
-    const newImageUrl = await storageRepository.uploadImage(file);
-
-    try {
-      await postRepository.updatePostById(id, {
-        ...updateData,
-        image: newImageUrl,
-      });
-
-      // ลบรูปเก่า หลัง DB สำเร็จ
-      if (existingImageUrl) {
-        await storageRepository.deleteImage(existingImageUrl);
-      }
-
-    } catch (error) {
-      // rollback รูปใหม่ถ้า DB fail
-      await storageRepository.deleteImage(newImageUrl);
-      throw error;
-    }
-
-    return { message: "Updated post successfully" };
+    const newImageUrl = await postRepository.uploadImage(file);
+    updateData.image = newImageUrl;
   }
 
-  // ✅ กรณีไม่มีไฟล์ใหม่
+  // อัพเดต post ใน DB
   await postRepository.updatePostById(id, updateData);
   return { message: "Updated post successfully" };
 };
@@ -152,20 +145,10 @@ export const deletePost = async (id) => {
     throw new Error("POST_NOT_FOUND");
   }
 
-  const imageUrl = existingPost.image;
-
   // ลบ DB ก่อน
   await postRepository.deletePostById(id);
 
-  // ค่อยลบไฟล์ (ถ้ามี)
-  if (imageUrl) {
-    try {
-      await storageRepository.deleteImage(imageUrl);
-    } catch (error) {
-      // log ไว้ แต่ไม่ throw
-      console.error("Failed to delete image:", error);
-    }
-  }
+  // Note: ถ้าต้องการลบไฟล์รูปด้วย ต้องเพิ่ม deleteImage function ใน postRepository
 
   return { message: "Deleted post successfully" };
 };

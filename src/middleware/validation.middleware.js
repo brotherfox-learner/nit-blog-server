@@ -1,13 +1,27 @@
 export const validateCreatePost = (req, res, next) => {
-  const {image, title, description, content, category_id, status_id} = req.body;
+  // FormData ส่ง values มาเป็น string ทั้งหมด ต้อง parse ก่อน
+  const image = req.body.image;
+  const title = req.body.title;
+  const description = req.body.description;
+  const content = req.body.content;
+  // parse category_id และ status_id เป็น number
+  const category_id = req.body.category_id ? parseInt(req.body.category_id, 10) : undefined;
+  const status_id = req.body.status_id ? parseInt(req.body.status_id, 10) : undefined;
+
+  // อัพเดต req.body ให้เป็น number สำหรับ controller
+  if (category_id !== undefined) req.body.category_id = category_id;
+  if (status_id !== undefined) req.body.status_id = status_id;
+
   const errors = [];
 
-  // ตรวจสอบว่ามี title และ content หรือไม่
-  if (!image) {
-    errors.push("Image is required");
-  } else if (typeof image !== "string") {
+  // image อาจมาจาก file upload แทน field ดังนั้นเช็คแค่ถ้ามีค่า
+  // ถ้าไม่มี image และไม่มี imageFile ก็ error
+  const hasImageFile = req.files && req.files.imageFile && req.files.imageFile.length > 0;
+  if (!image && !hasImageFile) {
+    errors.push("Image is required (either image URL or imageFile)");
+  } else if (image && typeof image !== "string") {
     errors.push("Image must be a string");
-  } else if (image.trim().length === 0) {
+  } else if (image && image.trim().length === 0 && !hasImageFile) {
     errors.push("Image cannot be empty");
   }
 
@@ -21,9 +35,9 @@ export const validateCreatePost = (req, res, next) => {
     errors.push("Title must not exceed 200 characters");
   }
 
-  if (category_id) {
-    if (typeof category_id !== "number") {
-      errors.push("category ID must be a number");
+  if (category_id !== undefined) {
+    if (isNaN(category_id)) {
+      errors.push("category ID must be a valid number");
     } else if (category_id <= 0) {
       errors.push("category ID must be greater than 0");
     }
@@ -47,9 +61,9 @@ export const validateCreatePost = (req, res, next) => {
     errors.push("Content must not exceed 10000 characters");
   }
 
-  if (status_id) {
-    if (typeof status_id !== "number") {
-      errors.push("status ID must be a number");
+  if (status_id !== undefined) {
+    if (isNaN(status_id)) {
+      errors.push("status ID must be a valid number");
     } else if (status_id <= 0) {
       errors.push("status ID must be greater than 0");
     }
@@ -66,10 +80,24 @@ export const validateCreatePost = (req, res, next) => {
 };
 
 export const validateUpdatePost = (req, res, next) => {
-  const { image, title, description, content, category_id, status_id } = req.body;
+  // FormData ส่ง values มาเป็น string ทั้งหมด ต้อง parse ก่อน
+  const image = req.body.image;
+  const title = req.body.title;
+  const description = req.body.description;
+  const content = req.body.content;
+  // parse category_id และ status_id เป็น number
+  const category_id = req.body.category_id ? parseInt(req.body.category_id, 10) : undefined;
+  const status_id = req.body.status_id ? parseInt(req.body.status_id, 10) : undefined;
+
+  // อัพเดต req.body ให้เป็น number สำหรับ controller
+  if (category_id !== undefined) req.body.category_id = category_id;
+  if (status_id !== undefined) req.body.status_id = status_id;
+
   const errors = [];
 
-  if (image !== undefined) {
+  // image อาจมาจาก file upload แทน field หรืออาจ keep existing image
+  const hasImageFile = req.files && req.files.imageFile && req.files.imageFile.length > 0;
+  if (image !== undefined && !hasImageFile) {
     if (typeof image !== "string") {
       errors.push("Image must be a string");
     } else if (image.trim().length === 0) {
@@ -105,17 +133,17 @@ export const validateUpdatePost = (req, res, next) => {
     }
   }
 
-  if (category_id) {
-    if (typeof category_id !== "number") {
-      errors.push("category ID must be a number");
+  if (category_id !== undefined) {
+    if (isNaN(category_id)) {
+      errors.push("category ID must be a valid number");
     } else if (category_id <= 0) {
       errors.push("category ID must be greater than 0");
     }
   }
 
-  if (status_id) {
-    if (typeof status_id !== "number") {
-      errors.push("status ID must be a number");
+  if (status_id !== undefined) {
+    if (isNaN(status_id)) {
+      errors.push("status ID must be a valid number");
     } else if (status_id <= 0) {
       errors.push("status ID must be greater than 0");
     }
@@ -314,18 +342,14 @@ export const validateUserIdParamForComment = (req, res, next) => {
 };
 
 export const validateCreateComment = (req, res, next) => {
-  const { post_id, user_id, comment_text } = req.body;
+  const { post_id, comment_text } = req.body;
   const errors = [];
   if (post_id === undefined || post_id === null || post_id === "") {
     errors.push("post_id is required");
   } else if (!/^\d+$/.test(String(post_id))) {
     errors.push("post_id must be a valid number");
   }
-  if (user_id === undefined || user_id === null || user_id === "") {
-    errors.push("user_id is required");
-  } else if (!/^\d+$/.test(String(user_id))) {
-    errors.push("user_id must be a valid number");
-  }
+  // user_id มาจาก req.user.id (protectUser middleware) ไม่ต้องเช็คจาก body
   if (!comment_text) {
     errors.push("comment_text is required");
   } else if (typeof comment_text !== "string") {

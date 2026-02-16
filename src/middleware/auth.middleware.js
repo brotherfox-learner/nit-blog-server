@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import pool from "../utils/db.mjs";
 import dotenv from "dotenv";
 import path from "path";
@@ -13,10 +12,29 @@ if (existsSync(envPath)) {
   dotenv.config({ path: envPath });
 }
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_PUBLISHABLE_KEY
-);
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+/**
+ * ตรวจสอบ JWT token โดยเรียก Supabase Auth REST API โดยตรง
+ * ไม่ใช้ supabase-js client เพื่อหลีกเลี่ยงปัญหา "Auth session missing!"
+ */
+async function getSupabaseUser(token) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    return { user: null, error: body.msg || body.message || `HTTP ${response.status}` };
+  }
+
+  const user = await response.json();
+  return { user, error: null };
+}
 
 /**
  * Middleware: protectUser
@@ -31,14 +49,14 @@ export const protectUser = async (req, res, next) => {
   }
 
   try {
-    const { data, error } = await supabase.auth.getUser(token);
+    const { user, error } = await getSupabaseUser(token);
 
-    if (error || !data.user) {
+    if (error || !user) {
       return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
 
     // ใส่ supabase auth user ลง req.user (มี id, email, aud, role ฯลฯ)
-    req.user = data.user;
+    req.user = user;
     next();
   } catch (err) {
     console.error("protectUser middleware error:", err);
@@ -58,23 +76,23 @@ export const protectAdmin = async (req, res, next) => {
   }
 
   try {
-    const { data, error } = await supabase.auth.getUser(token);
+    const { user, error } = await getSupabaseUser(token);
 
-    if (error || !data.user) {
+    if (error || !user) {
       return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
     }
 
     // ดึง role จาก users table
     const { rows } = await pool.query(
       "SELECT role FROM users WHERE id = $1",
-      [data.user.id]
+      [user.id]
     );
 
     if (!rows.length) {
       return res.status(404).json({ message: "User profile not found" });
     }
 
-    req.user = { ...data.user, role: rows[0].role };
+    req.user = { ...user, role: rows[0].role };
 
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Forbidden: Admin access required" });

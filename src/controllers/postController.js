@@ -11,12 +11,21 @@ import * as postService from "../services/postService.js";
 // GET /posts - ดึงข้อมูลบทความทั้งหมด (pagination, category, keyword)
 export const getPosts = async (req, res, next) => {
   try {
-    const { page, limit, category, keyword } = req.query;
+    const { page, limit, category, keyword, status_id, all } = req.query;
+    let resolvedStatusId;
+    if (all === "1" || all === "true") {
+      resolvedStatusId = undefined;
+    } else if (status_id != null && status_id !== "") {
+      resolvedStatusId = parseInt(status_id, 10);
+    } else {
+      resolvedStatusId = 2;
+    }
     const filters = {
       page: parseInt(page) || 1,
       limit: parseInt(limit) || 6,
       category: category || undefined,
       keyword: keyword || undefined,
+      status_id: resolvedStatusId,
     };
 
     const result = await postService.getPosts(filters);
@@ -57,8 +66,13 @@ export const createPost = async (req, res, next) => {
       description: req.body.description,
       content: req.body.content,
       status_id: req.body.status_id,
+      image: req.body.image, // existing image URL (if any)
+      user_id: req.user?.id || null, // เก็บ user_id ของ admin ที่สร้าง (จาก protectAdmin middleware)
     };
-    const file = req.files.imageFile[0];
+    
+    // ดึง file ถ้ามี
+    const file = req.files?.imageFile?.[0] || null;
+    
     // ส่ง DTO ให้ Service Layer ทำงานต่อ
     const post = await postService.createPost(postData, file);
 
@@ -87,9 +101,11 @@ export const updatePost = async (req, res, next) => {
       description: req.body.description,
       content: req.body.content,
       status_id: req.body.status_id,
+      image: req.body.image, // existing image URL
     };
 
-    const file = req.files.imageFile[0];
+    // ดึง file ถ้ามี (optional สำหรับ update)
+    const file = req.files?.imageFile?.[0] || null;
     const result = await postService.updatePost(postId, postData, file);
     res.status(200).json(result);
   } catch (error) {
