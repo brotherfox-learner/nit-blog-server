@@ -1,5 +1,7 @@
 import * as likeRepository from "../repositories/likeRepository.js";
 import * as postRepository from "../repositories/postRepository.js";
+import * as notificationService from "./notificationService.js";
+import * as statisticsRepository from "../repositories/statisticsRepository.js";
 
 /**
  * Service Layer สำหรับ Like
@@ -9,7 +11,7 @@ export const likePost = async (post_id, user_id) => {
   if (!post_id || !user_id) {
     throw new Error("user_id is required");
   }
-  const post = await postRepository.findById(post_id);
+  const post = await postRepository.getPostById(post_id);
   if (!post) {
     throw new Error("POST_NOT_FOUND");
   }
@@ -18,6 +20,21 @@ export const likePost = async (post_id, user_id) => {
     throw new Error("ALREADY_LIKED");
   }
   const like = await likeRepository.create({ post_id, user_id });
+
+  // อัพเดต last_active
+  statisticsRepository.updateLastActive(user_id).catch(() => {});
+
+  // สร้าง notification ให้เจ้าของโพสต์
+  if (post.user_id) {
+    notificationService.createNotification({
+      recipient_id: post.user_id,
+      actor_id: user_id,
+      type: "like",
+      post_id: parseInt(post_id, 10),
+      post_title: post.title,
+    }).catch((err) => console.error("Failed to create like notification:", err));
+  }
+
   return { message: "Post liked successfully", like };
 };
 
