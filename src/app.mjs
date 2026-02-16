@@ -24,11 +24,12 @@ const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
   .map((o) => o.trim().replace(/\/+$/, ""))
   .filter(Boolean) ?? [];
 
-// Vercel preview URL pattern — อนุญาตทุก deployment ภายใต้ project เดียวกัน
-// รูปแบบ: https://nit-blog-<hash>-nits-projects-6f71deae.vercel.app
+// Vercel URL patterns — อนุญาต production + preview deployments
+// Production: https://nit-blog.vercel.app
+// Preview: https://nit-blog-<hash>-nits-projects-6f71deae.vercel.app
 const VERCEL_PREVIEW_PATTERN = process.env.CORS_VERCEL_PATTERN
   ? new RegExp(process.env.CORS_VERCEL_PATTERN)
-  : /^https:\/\/nit-blog.*-nits-projects-6f71deae\.vercel\.app$/;
+  : /^https:\/\/nit-blog(\.vercel\.app|.*-nits-projects-6f71deae\.vercel\.app)$/;
 
 // Middleware - ใช้ console.log แทน stdout เพื่อหลีกเลี่ยง buffering issue ใน Windows
 app.use(morgan("dev", {
