@@ -24,6 +24,12 @@ const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
   .map((o) => o.trim().replace(/\/+$/, ""))
   .filter(Boolean) ?? [];
 
+// Vercel preview URL pattern — อนุญาตทุก deployment ภายใต้ project เดียวกัน
+// รูปแบบ: https://nit-blog-<hash>-nits-projects-6f71deae.vercel.app
+const VERCEL_PREVIEW_PATTERN = process.env.CORS_VERCEL_PATTERN
+  ? new RegExp(process.env.CORS_VERCEL_PATTERN)
+  : /^https:\/\/nit-blog.*-nits-projects-6f71deae\.vercel\.app$/;
+
 // Middleware - ใช้ console.log แทน stdout เพื่อหลีกเลี่ยง buffering issue ใน Windows
 app.use(morgan("dev", {
   stream: { write: (msg) => console.log(msg.trimEnd()) }
@@ -33,8 +39,14 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // CORS Configuration - อนุญาต Authorization header สำหรับ like/auth
+// ใช้ function เพื่อเช็คทั้ง static list และ Vercel preview pattern
 app.use(cors({
-  origin: ALLOWED_ORIGINS,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    if (VERCEL_PREVIEW_PATTERN.test(origin)) return callback(null, true);
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
