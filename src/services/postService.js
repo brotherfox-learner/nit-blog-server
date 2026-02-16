@@ -21,11 +21,17 @@ export const getPosts = async (filters = {}) => {
     id: row.id,
     image: row.image,
     category: row.category ?? null,
+    category_id: row.category_id,
     title: row.title,
     description: row.description,
     date: row.date,
     content: row.content,
     status: row.status ?? null,
+    status_id: row.status_id,
+    user_id: row.user_id,
+    author: row.author ?? null,
+    author_avatar: row.author_avatar ?? null,
+    author_bio: row.author_bio ?? null,
     likes_count: parseInt(row.likes_count, 10) || 0,
   }));
 
@@ -51,48 +57,60 @@ export const getPostById = async (id) => {
     id: post.id,
     image: post.image,
     category: post.category ?? null,
+    category_id: post.category_id,
     title: post.title,
     description: post.description,
     date: post.date,
     content: post.content,
     status: post.status ?? null,
+    status_id: post.status_id,
+    user_id: post.user_id,
+    author: post.author ?? null,
+    author_avatar: post.author_avatar ?? null,
+    author_bio: post.author_bio ?? null,
     likes_count: parseInt(post.likes_count, 10) || 0,
   };
 };
 
 // สร้าง post ใหม่
-export const createPost = async (postData) => {
-  const { title, image, category_id, description, content, status_id } = postData;
-  
+export const createPost = async (postData, file) => {
+  const { title, category_id, description, content, status_id, image, user_id } = postData;
+
+  // ต้องมี file หรือ image URL
+  if (!file && !image) {
+    throw new Error("Image is required");
+  }
+
   // Business Logic: ตรวจสอบว่ามีข้อมูลครบถ้วนหรือไม่
-  if (!title || !image || !category_id || !description || !content || !status_id) {
+  if (!title || !category_id || !description || !content || !status_id) {
     throw new Error("Missing required fields");
   }
-  
-  // Business Logic: ตรวจสอบว่าชื่อ post มีอยู่แล้วหรือไม่ (ถ้าต้องการ)
-  // const existingPost = await postRepository.findByTitle(title);
-  // if (existingPost) {
-  //   throw new Error("Post with this title already exists");
-  // }
-  
+
+  // อัพโหลดรูปถ้ามี file ใหม่
+  let imageUrl = image;
+  if (file) {
+    imageUrl = await postRepository.uploadImage(file);
+  }
+
   // เตรียมข้อมูลสำหรับการสร้าง post
   const newPostData = {
     title: title.trim(),
-    image,
+    image: imageUrl,
     category_id,
     description: description.trim(),
     content: content.trim(),
     status_id,
+    user_id: user_id || null, // เก็บ user_id ของ admin ที่สร้าง
   };
-  
+
   // เรียก Repository เพื่อบันทึกข้อมูล
   const post = await postRepository.createPost(newPostData);
-  
+
   return post;
 };
 
 // อัพเดต post ตาม id
-export const updatePost = async (id, postData) => {
+export const updatePost = async (id, postData, file) => {
   const existingPost = await postRepository.getPostById(id);
   if (!existingPost) {
     throw new Error("POST_NOT_FOUND");
@@ -100,24 +118,37 @@ export const updatePost = async (id, postData) => {
 
   const updateData = {
     title: postData.title?.trim() ?? existingPost.title,
-    image: postData.image ?? existingPost.image,
     category_id: postData.category_id ?? existingPost.category_id,
     description: postData.description?.trim() ?? existingPost.description,
     content: postData.content?.trim() ?? existingPost.content,
     status_id: postData.status_id ?? existingPost.status_id,
+    image: postData.image ?? existingPost.image, // keep existing image by default
   };
 
+  // ถ้ามีไฟล์ใหม่ ให้อัพโหลดและอัพเดต image URL
+  if (file) {
+    const newImageUrl = await postRepository.uploadImage(file);
+    updateData.image = newImageUrl;
+  }
+
+  // อัพเดต post ใน DB
   await postRepository.updatePostById(id, updateData);
-  return { message: "Updated post sucessfully" };
+  return { message: "Updated post successfully" };
 };
+
 
 // ลบ post ตาม id
 export const deletePost = async (id) => {
   const existingPost = await postRepository.getPostById(id);
+
   if (!existingPost) {
     throw new Error("POST_NOT_FOUND");
   }
 
+  // ลบ DB ก่อน
   await postRepository.deletePostById(id);
-  return { message: "Deleted post sucessfully" };
+
+  // Note: ถ้าต้องการลบไฟล์รูปด้วย ต้องเพิ่ม deleteImage function ใน postRepository
+
+  return { message: "Deleted post successfully" };
 };

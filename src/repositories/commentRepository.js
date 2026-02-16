@@ -23,11 +23,11 @@ export const findByPostId = async (post_id) => {
   const result = await pool.query(
     `SELECT 
        c.id, c.post_id, c.user_id, c.comment_text, c.created_at,
-       u.username
+       u.username, u.name, u.profile_pic
      FROM comments c
      JOIN users u ON u.id = c.user_id
      WHERE c.post_id = $1
-     ORDER BY c.created_at DESC`,
+     ORDER BY c.created_at ASC`,
     [post_id]
   );
   return result.rows;
