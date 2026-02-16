@@ -20,8 +20,9 @@ import routes from "./routes/index.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 const ALLOWED_ORIGINS = process.env.CORS_ORIGIN
-?.split(",")
-.map(o => o.trim());
+  ?.split(",")
+  .map((o) => o.trim().replace(/\/+$/, ""))
+  .filter(Boolean) ?? [];
 
 // Middleware - ใช้ console.log แทน stdout เพื่อหลีกเลี่ยง buffering issue ใน Windows
 app.use(morgan("dev", {
