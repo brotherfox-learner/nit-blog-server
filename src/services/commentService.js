@@ -1,5 +1,7 @@
 import * as commentRepository from "../repositories/commentRepository.js";
 import * as postRepository from "../repositories/postRepository.js";
+import * as notificationService from "./notificationService.js";
+import * as statisticsRepository from "../repositories/statisticsRepository.js";
 
 /**
  * Service Layer สำหรับ Comment
@@ -17,8 +19,8 @@ export const createComment = async (commentData) => {
     throw new Error("post_id, user_id, comment_text are required");
   }
   
-  // Business Logic: ตรวจสอบว่า post มีอยู่หรือไม่
-  const post = await postRepository.findById(post_id);
+  // Business Logic: ตรวจสอบว่า post มีอยู่หรือไม่ (ใช้ getPostById เพื่อได้ title + user_id)
+  const post = await postRepository.getPostById(post_id);
   if (!post) {
     throw new Error("Post not found");
   }
@@ -32,6 +34,22 @@ export const createComment = async (commentData) => {
   
   // เรียก Repository เพื่อบันทึกข้อมูล
   const comment = await commentRepository.create(newCommentData);
+
+  // อัพเดต last_active
+  statisticsRepository.updateLastActive(user_id).catch(() => {});
+
+  // สร้าง notification ให้เจ้าของโพสต์
+  if (post.user_id) {
+    notificationService.createNotification({
+      recipient_id: post.user_id,
+      actor_id: user_id,
+      type: "comment",
+      post_id: parseInt(post_id, 10),
+      comment_id: comment.id,
+      post_title: post.title,
+      comment_text: comment_text.trim().substring(0, 200),
+    }).catch((err) => console.error("Failed to create comment notification:", err));
+  }
   
   return comment;
 };

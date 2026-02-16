@@ -1,4 +1,5 @@
 import * as postRepository from "../repositories/postRepository.js";
+import * as notificationService from "./notificationService.js";
 
 /**
  * Service Layer สำหรับ Post
@@ -106,6 +107,16 @@ export const createPost = async (postData, file) => {
   // เรียก Repository เพื่อบันทึกข้อมูล
   const post = await postRepository.createPost(newPostData);
 
+  // แจ้งเตือน user ทุกคนว่ามีโพสต์ใหม่ (เฉพาะ published / status_id === 2)
+  if (post && post.id && String(status_id) === "2") {
+    notificationService.notifyAllUsers({
+      actor_id: user_id,
+      type: "new_post",
+      post_id: post.id,
+      post_title: title.trim(),
+    }).catch((err) => console.error("Failed to create new_post notifications:", err));
+  }
+
   return post;
 };
 
@@ -133,6 +144,18 @@ export const updatePost = async (id, postData, file) => {
 
   // อัพเดต post ใน DB
   await postRepository.updatePostById(id, updateData);
+
+  // แจ้งเตือน user ทุกคนว่ามีโพสต์ถูกอัพเดต (เฉพาะ published)
+  const finalStatusId = String(updateData.status_id);
+  if (finalStatusId === "2") {
+    notificationService.notifyAllUsers({
+      actor_id: existingPost.user_id,
+      type: "post_update",
+      post_id: parseInt(id, 10),
+      post_title: updateData.title,
+    }).catch((err) => console.error("Failed to create post_update notifications:", err));
+  }
+
   return { message: "Updated post successfully" };
 };
 

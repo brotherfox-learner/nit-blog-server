@@ -1,4 +1,5 @@
 import * as authRepository from "../repositories/authRepository.js";
+import * as statisticsRepository from "../repositories/statisticsRepository.js";
 
 /**
  * Service Layer สำหรับ Auth
@@ -120,6 +121,8 @@ export const signIn = async ({ email, password }) => {
   let profile = null;
   if (data.user) {
     profile = await authRepository.findUserById(data.user.id);
+    // อัพเดต last_active ตอน sign in
+    statisticsRepository.updateLastActive(data.user.id).catch(() => {});
   }
 
   return {
